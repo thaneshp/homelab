@@ -30,3 +30,8 @@ variable "vm_template_name" {
   description = "Name of the VM template to clone"
   type        = string
 }
+
+variable "enable_qemu_agent" {
+  description = "Whether to enable the QEMU agent"
+  default     = 1 # 1 for true, 0 for false
+}

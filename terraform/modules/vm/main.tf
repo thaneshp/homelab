@@ -3,6 +3,7 @@ resource "proxmox_vm_qemu" "vm" {
   target_node = var.proxmox_node
   clone       = var.vm_template_name
   full_clone  = true
+  agent       = var.enable_qemu_agent
   memory      = var.memory
   cpu {
     cores = var.cpu_cores
@@ -15,6 +16,7 @@ resource "proxmox_vm_qemu" "vm" {
     slot    = "scsi0"
   }
 
+  ipconfig0 = "dhcp"
   network {
     id        = 0
     model     = "virtio"
