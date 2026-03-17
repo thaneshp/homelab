@@ -5,9 +5,11 @@ resource "proxmox_vm_qemu" "vm" {
   full_clone  = true
   agent       = var.enable_qemu_agent
   memory      = var.memory
+  
   cpu {
     cores = var.cpu_cores
   }
+
   disk {
     size    = var.disk_size
     type    = "disk"
