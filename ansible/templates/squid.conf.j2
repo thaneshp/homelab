@@ -1,0 +1,27 @@
+# Managed by Ansible.
+
+http_port {{ squid_http_port }}
+
+{% for cidr in squid_allowed_cidrs %}
+acl localnet src {{ cidr }}
+{% endfor %}
+{% if squid_allowed_domains is defined and squid_allowed_domains | length > 0 %}
+acl allowed_sites dstdomain {{ squid_allowed_domains | join(' ') }}
+{{ '' }}
+{% endif %}
+acl SSL_ports port 443
+acl Safe_ports port 80
+acl Safe_ports port 443
+acl CONNECT method CONNECT
+
+{% if squid_allowed_domains is defined and squid_allowed_domains | length > 0 %}
+http_access allow localnet allowed_sites
+{% else %}
+http_access allow localnet
+{% endif %}
+http_access deny !Safe_ports
+http_access deny CONNECT !SSL_ports
+http_access deny all
+
+cache deny all
+access_log {{ squid_access_log }}

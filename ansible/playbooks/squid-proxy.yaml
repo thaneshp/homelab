@@ -1,0 +1,92 @@
+---
+- name: Manage Squid proxy servers
+  hosts: proxy
+  become: true
+  gather_facts: true
+
+  vars:
+    squid_service_name: squid
+    squid_package_name: squid
+    squid_config_path: /etc/squid/squid.conf
+    squid_http_port: 3128
+    squid_ssh_port: 22
+    squid_access_log: stdio:/var/log/squid/access.log
+    squid_manage_ufw: true
+    squid_ufw_default_incoming_policy: deny
+    squid_ufw_default_outgoing_policy: allow
+
+  tasks:
+    - name: Validate required Squid access configuration
+      ansible.builtin.assert:
+        that:
+          - squid_allowed_cidrs is defined
+          - squid_allowed_cidrs | length > 0
+        fail_msg: Set squid_allowed_cidrs for the proxy host or group before applying this playbook.
+
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Install Squid
+      ansible.builtin.apt:
+        name: "{{ squid_package_name }}"
+        state: present
+
+    - name: Gather installed package facts
+      ansible.builtin.package_facts:
+        manager: auto
+
+    - name: Deploy Squid configuration
+      ansible.builtin.template:
+        src: ../templates/squid.conf.j2
+        dest: "{{ squid_config_path }}"
+        owner: root
+        group: root
+        mode: "0644"
+        validate: "squid -k parse -f %s"
+      notify: Restart squid
+
+    - name: Enable and start Squid
+      ansible.builtin.systemd:
+        name: "{{ squid_service_name }}"
+        enabled: true
+        state: started
+
+    - name: Allow SSH through UFW
+      ansible.builtin.command: "ufw allow {{ squid_ssh_port }}/tcp"
+      register: squid_ufw_allow_ssh_result
+      changed_when: "'Skipping adding existing rule' not in ((squid_ufw_allow_ssh_result.stdout | default('')) + (squid_ufw_allow_ssh_result.stderr | default('')))"
+      when:
+        - squid_manage_ufw | bool
+        - "'ufw' in ansible_facts.packages"
+
+    - name: Allow Squid port through UFW
+      ansible.builtin.command: "ufw allow {{ squid_http_port }}/tcp"
+      register: squid_ufw_allow_proxy_result
+      changed_when: "'Skipping adding existing rule' not in ((squid_ufw_allow_proxy_result.stdout | default('')) + (squid_ufw_allow_proxy_result.stderr | default('')))"
+      when:
+        - squid_manage_ufw | bool
+        - "'ufw' in ansible_facts.packages"
+
+    - name: Set UFW default incoming policy
+      ansible.builtin.command: "ufw default {{ squid_ufw_default_incoming_policy }} incoming"
+      register: squid_ufw_default_incoming_result
+      changed_when: "'Default incoming policy changed to' in ((squid_ufw_default_incoming_result.stdout | default('')) + (squid_ufw_default_incoming_result.stderr | default('')))"
+      when:
+        - squid_manage_ufw | bool
+        - "'ufw' in ansible_facts.packages"
+
+    - name: Set UFW default outgoing policy
+      ansible.builtin.command: "ufw default {{ squid_ufw_default_outgoing_policy }} outgoing"
+      register: squid_ufw_default_outgoing_result
+      changed_when: "'Default outgoing policy changed to' in ((squid_ufw_default_outgoing_result.stdout | default('')) + (squid_ufw_default_outgoing_result.stderr | default('')))"
+      when:
+        - squid_manage_ufw | bool
+        - "'ufw' in ansible_facts.packages"
+
+  handlers:
+    - name: Restart squid
+      ansible.builtin.systemd:
+        name: "{{ squid_service_name }}"
+        state: restarted

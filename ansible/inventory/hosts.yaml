@@ -16,3 +16,14 @@ all:
           ansible_host: 192.168.4.83
         worker-node-2:
           ansible_host: 192.168.4.84
+
+    proxy:
+      hosts:
+        pi-proxy:
+          ansible_host: 192.168.4.69
+      vars:
+        squid_http_port: 3128
+        squid_allowed_cidrs:
+          - 192.168.4.0/24
+        squid_allowed_domains:
+          - .github.com
