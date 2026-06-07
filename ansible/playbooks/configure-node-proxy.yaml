@@ -1,0 +1,94 @@
+---
+- name: Configure Kubernetes nodes to use proxy
+  hosts: k8s_cluster
+  become: true
+
+  vars:
+    proxy_url: "http://192.168.4.69:3128"
+    no_proxy: "localhost,127.0.0.1,::1,192.168.4.0/24,10.244.0.0/16,10.96.0.0/12,.svc,.cluster.local"
+
+  tasks:
+    - name: Configure system-wide proxy environment
+      ansible.builtin.copy:
+        dest: /etc/environment
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+          HTTP_PROXY="{{ proxy_url }}"
+          HTTPS_PROXY="{{ proxy_url }}"
+          NO_PROXY="{{ no_proxy }}"
+          http_proxy="{{ proxy_url }}"
+          https_proxy="{{ proxy_url }}"
+          no_proxy="{{ no_proxy }}"
+
+    - name: Configure apt proxy
+      ansible.builtin.copy:
+        dest: /etc/apt/apt.conf.d/95proxy
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          Acquire::http::Proxy "{{ proxy_url }}";
+          Acquire::https::Proxy "{{ proxy_url }}";
+
+    - name: Create containerd systemd drop-in directory
+      ansible.builtin.file:
+        path: /etc/systemd/system/containerd.service.d
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Configure containerd proxy
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/containerd.service.d/http-proxy.conf
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          [Service]
+          Environment="HTTP_PROXY={{ proxy_url }}"
+          Environment="HTTPS_PROXY={{ proxy_url }}"
+          Environment="NO_PROXY={{ no_proxy }}"
+          Environment="http_proxy={{ proxy_url }}"
+          Environment="https_proxy={{ proxy_url }}"
+          Environment="no_proxy={{ no_proxy }}"
+
+    - name: Create kubelet systemd drop-in directory
+      ansible.builtin.file:
+        path: /etc/systemd/system/kubelet.service.d
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Configure kubelet proxy
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/kubelet.service.d/http-proxy.conf
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          [Service]
+          Environment="HTTP_PROXY={{ proxy_url }}"
+          Environment="HTTPS_PROXY={{ proxy_url }}"
+          Environment="NO_PROXY={{ no_proxy }}"
+          Environment="http_proxy={{ proxy_url }}"
+          Environment="https_proxy={{ proxy_url }}"
+          Environment="no_proxy={{ no_proxy }}"
+
+    - name: Reload systemd
+      ansible.builtin.systemd:
+        daemon_reload: true
+
+    - name: Restart containerd
+      ansible.builtin.systemd:
+        name: containerd
+        state: restarted
+
+    - name: Restart kubelet
+      ansible.builtin.systemd:
+        name: kubelet
+        state: restarted

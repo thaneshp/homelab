@@ -1,0 +1,101 @@
+---
+- name: Enforce node egress through proxy
+  hosts: k8s_cluster
+  become: true
+
+  vars:
+    lan_cidr: "192.168.4.0/24"
+    pod_cidr: "10.244.0.0/16"
+    service_cidr: "10.96.0.0/12"
+    proxy_ip: "192.168.4.69"
+    proxy_port: "3128"
+    dns_ip: "192.168.4.1"
+
+  tasks:
+    - name: Install UFW
+      ansible.builtin.apt:
+        name: ufw
+        state: present
+        update_cache: false
+
+    - name: Reset UFW
+      community.general.ufw:
+        state: reset
+
+    - name: Deny incoming by default
+      community.general.ufw:
+        direction: incoming
+        policy: deny
+
+    - name: Deny outgoing by default
+      community.general.ufw:
+        direction: outgoing
+        policy: deny
+
+    - name: Allow SSH from LAN
+      community.general.ufw:
+        rule: allow
+        from_ip: "{{ lan_cidr }}"
+        to_port: "22"
+        proto: tcp
+
+    - name: Allow inbound LAN traffic
+      community.general.ufw:
+        rule: allow
+        from_ip: "{{ lan_cidr }}"
+
+    - name: Allow outbound LAN traffic
+      community.general.ufw:
+        rule: allow
+        direction: out
+        to_ip: "{{ lan_cidr }}"
+
+    - name: Allow inbound pod CIDR traffic
+      community.general.ufw:
+        rule: allow
+        from_ip: "{{ pod_cidr }}"
+
+    - name: Allow outbound pod CIDR traffic
+      community.general.ufw:
+        rule: allow
+        direction: out
+        to_ip: "{{ pod_cidr }}"
+
+    - name: Allow inbound service CIDR traffic
+      community.general.ufw:
+        rule: allow
+        from_ip: "{{ service_cidr }}"
+
+    - name: Allow outbound service CIDR traffic
+      community.general.ufw:
+        rule: allow
+        direction: out
+        to_ip: "{{ service_cidr }}"
+
+    - name: Allow outbound traffic to proxy
+      community.general.ufw:
+        rule: allow
+        direction: out
+        to_ip: "{{ proxy_ip }}"
+        to_port: "{{ proxy_port }}"
+        proto: tcp
+
+    - name: Allow outbound DNS UDP
+      community.general.ufw:
+        rule: allow
+        direction: out
+        to_ip: "{{ dns_ip }}"
+        to_port: "53"
+        proto: udp
+
+    - name: Allow outbound DNS TCP
+      community.general.ufw:
+        rule: allow
+        direction: out
+        to_ip: "{{ dns_ip }}"
+        to_port: "53"
+        proto: tcp
+
+    - name: Enable UFW
+      community.general.ufw:
+        state: enabled

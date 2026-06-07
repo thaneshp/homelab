@@ -17,6 +17,11 @@ all:
         worker-node-2:
           ansible_host: 192.168.4.84
 
+    k8s_cluster:
+      children:
+        k8s_control_plane:
+        k8s_workers:
+
     proxy:
       hosts:
         pi-proxy:
@@ -27,3 +32,11 @@ all:
           - 192.168.4.0/24
         squid_allowed_domains:
           - .github.com
+          - .ubuntu.com
+          - .canonical.com
+          - .k8s.io
+          - .githubusercontent.com
+          - .ghcr.io
+          - .docker.io
+          - .docker.com
+          - .fluxcd.io
