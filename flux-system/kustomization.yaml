@@ -4,3 +4,6 @@ resources:
 - gotk-components.yaml
 - gotk-sync.yaml
 - kubernetes-sync.yaml
+
+patches:
+- path: patches/flux-controller-proxy.yaml
