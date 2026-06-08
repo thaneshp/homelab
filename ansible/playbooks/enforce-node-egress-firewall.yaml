@@ -7,6 +7,9 @@
     lan_cidr: "192.168.4.0/24"
     pod_cidr: "10.244.0.0/16"
     service_cidr: "10.96.0.0/12"
+    control_plane_ip: "192.168.4.87"
+    kube_apiserver_port: "6443"
+    kubelet_port: "10250"
     proxy_ip: "192.168.4.69"
     proxy_port: "3128"
     dns_ip: "192.168.4.1"
@@ -94,6 +97,42 @@
         direction: out
         to_ip: "{{ dns_ip }}"
         to_port: "53"
+        proto: tcp
+    
+    - name: Allow outbound LAN traffic
+      community.general.ufw:
+        rule: allow
+        direction: out
+        to_ip: "{{ lan_cidr }}"
+
+    - name: Allow workers to reach Kubernetes API server
+      community.general.ufw:
+        rule: allow
+        direction: out
+        to_ip: "{{ control_plane_ip }}"
+        to_port: "{{ kube_apiserver_port }}"
+        proto: tcp
+
+    - name: Allow Kubernetes API server inbound from LAN
+      community.general.ufw:
+        rule: allow
+        from_ip: "{{ lan_cidr }}"
+        to_port: "{{ kube_apiserver_port }}"
+        proto: tcp
+
+    - name: Allow control plane to reach kubelet on nodes
+      community.general.ufw:
+        rule: allow
+        from_ip: "{{ control_plane_ip }}"
+        to_port: "{{ kubelet_port }}"
+        proto: tcp
+
+    - name: Allow outbound kubelet traffic to LAN nodes
+      community.general.ufw:
+        rule: allow
+        direction: out
+        to_ip: "{{ lan_cidr }}"
+        to_port: "{{ kubelet_port }}"
         proto: tcp
 
     - name: Enable UFW
