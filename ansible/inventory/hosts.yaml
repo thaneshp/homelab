@@ -40,3 +40,4 @@ all:
           - .docker.io
           - .docker.com
           - .fluxcd.io
+          - .quay.io
